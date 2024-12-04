@@ -7,24 +7,19 @@ import { scenes } from './scenes'
 import { cameraSettings } from './config/camera'
 import { setupEventHandlers, setupNavigation, updateNavigation, getSectionName } from './utils/eventHandlers'
 
-// Debug
 const gui = new GUI()
 gui.close()
 
-// Canvas
 const canvas = document.querySelector('canvas.webgl')
 
-// Scene
 const mainScene = new THREE.Scene()
 
-// Sizes
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight,
     pixelRatio: Math.min(window.devicePixelRatio, 2)
 }
 
-// Camera
 const cameraGroup = new THREE.Group()
 mainScene.add(cameraGroup)
 
@@ -33,7 +28,6 @@ camera.position.copy(cameraSettings.galaxy.position)
 camera.lookAt(0, 0, 0)
 mainScene.add(camera)
 
-// Renderer
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     alpha: true
@@ -41,7 +35,6 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(sizes.pixelRatio)
 
-// Controls
 const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
 controls.enabled = false
@@ -74,7 +67,6 @@ setupNavigation({
     transitionToSection 
 })
 
-// Scene transition
 function transitionToSection(sectionName) {
     if(currentSectionName === sectionName) return
 
@@ -172,35 +164,32 @@ function tick() {
     const deltaTime = elapsedTime - previousTime
     previousTime = elapsedTime
 
-    if(!isControlEnabled && currentSectionName !== 'galaxy') {
-        const parallaxX = cursor.x * 0.5
-        const parallaxY = - cursor.y * 0.5
-        
-        cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * 5 * deltaTime
-        cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * 5 * deltaTime
-    }
-
-    if(!isControlEnabled && currentSectionName !== 'water') {
-        const parallaxX = cursor.x * 0.5
-        const parallaxY = - cursor.y * 0.5
-        
-        cameraGroup.position.x += (parallaxX - cameraGroup.position.x) * 5 * deltaTime
-        cameraGroup.position.y += (parallaxY - cameraGroup.position.y) * 5 * deltaTime
-    }
-
     const currentScene = scenes[currentSectionName]
     
     if(currentScene) {
+        if(currentSectionName === 'galaxy') {
+            if(currentScene.material) {
+                currentScene.material.uniforms.uTime.value = elapsedTime
+            }
+            if(isControlEnabled) {
+                controls.update()
+            }
+        }
+        else if(currentSectionName === 'cursor') {
+            if(currentScene.material) {
+                currentScene.material.uniforms.uTime.value = elapsedTime
+            }
+            if(currentScene.updateDisplacement) {
+                currentScene.updateDisplacement()
+            }
+        }
+        else if(currentMesh && currentSectionName !== 'water') {
+            currentMesh.rotation.x = elapsedTime * 0.5
+            currentMesh.rotation.y = elapsedTime * 0.5
+        }
+
         if(currentScene.update) {
             currentScene.update(elapsedTime)
-        }
-        
-        if(currentScene.updateDisplacement) {
-            currentScene.updateDisplacement()
-        }
-        
-        if(currentSectionName === 'galaxy' && isControlEnabled) {
-            controls.update()
         }
     }
 
@@ -209,3 +198,13 @@ function tick() {
 }
 
 tick() 
+
+window.addEventListener('pointermove', (event) => {
+    if(currentSectionName === 'cursor') {
+        const currentScene = scenes[currentSectionName]
+        if(currentScene && currentScene.displacement) {
+            currentScene.displacement.screenCursor.x = (event.clientX / sizes.width) * 2 - 1
+            currentScene.displacement.screenCursor.y = - (event.clientY / sizes.height) * 2 + 1
+        }
+    }
+}) 
